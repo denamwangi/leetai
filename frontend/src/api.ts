@@ -29,11 +29,15 @@ export const api = {
       fetch(`${BASE_URL}/api/sync?limit=${limit}&dry_run=${dryRun}`, { method: 'POST' })
     ),
 
-  overallStats: () =>
-    handle<OverallStats>(fetch(`${BASE_URL}/api/stats`)),
+  overallStats: async () => {
+    const res = await fetch(`${BASE_URL}/api/stats`);
+    return handle<OverallStats>(res);
+  },
 
-  topicStats: () =>
-    handle<TopicStats[]>(fetch(`${BASE_URL}/api/stats/topics`)),
+  topicStats: async () => {
+    const res = await fetch(`${BASE_URL}/api/stats/topics`);
+    return handle<TopicStats[]>(res);
+  },
 
   dailyPlan: (params: { date?: string; time_minutes: number; custom_instructions?: string }) => {
     const qs = new URLSearchParams();
