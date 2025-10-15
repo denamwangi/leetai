@@ -62,7 +62,22 @@ function App() {
       <header className="bg-white border-b">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <h1 className="text-lg font-semibold">LeetCode Assistant</h1>
-          <button className="px-3 py-1.5 rounded bg-blue-600 text-white" onClick={handleSync} disabled={loading}>Sync</button>
+          <button 
+            style={{
+              padding: '8px 16px',
+              borderRadius: '6px',
+              backgroundColor: loading ? '#9ca3af' : '#2563eb',
+              color: 'white',
+              fontWeight: '500',
+              border: 'none',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              opacity: loading ? 0.6 : 1
+            }}
+            onClick={handleSync} 
+            disabled={loading}
+          >
+            {loading ? 'Syncing...' : 'Sync'}
+          </button>
         </div>
       </header>
 
@@ -93,8 +108,31 @@ function App() {
         <section>
           <h2 className="text-base font-semibold mb-3">Daily Plan</h2>
           <div className="flex items-center gap-2 mb-3">
-            <input type="number" className="border rounded px-2 py-1" value={timeMinutes} onChange={e => setTimeMinutes(parseInt(e.target.value || '0'))} />
-            <button className="px-3 py-1.5 rounded bg-green-600 text-white" onClick={handleGeneratePlan} disabled={loading}>Generate</button>
+            <input 
+              type="number" 
+              className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+              value={timeMinutes} 
+              onChange={e => setTimeMinutes(parseInt(e.target.value || '0'))} 
+              min="15"
+              max="480"
+              placeholder="60"
+            />
+            <button 
+              style={{
+                padding: '8px 16px',
+                borderRadius: '6px',
+                backgroundColor: loading ? '#9ca3af' : '#16a34a',
+                color: 'white',
+                fontWeight: '500',
+                border: 'none',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.6 : 1
+              }}
+              onClick={handleGeneratePlan} 
+              disabled={loading}
+            >
+              {loading ? 'Generating...' : 'Generate Plan'}
+            </button>
           </div>
           {plan && (
             <div className="space-y-3">

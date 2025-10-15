@@ -4,8 +4,21 @@ const BASE_URL = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:8000';
 
 async function handle<T>(res: Response): Promise<T> {
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || `HTTP ${res.status}`);
+    let errorMessage = `HTTP ${res.status}`;
+    try {
+      const text = await res.text();
+      if (text) {
+        try {
+          const json = JSON.parse(text);
+          errorMessage = json.detail || json.message || text;
+        } catch {
+          errorMessage = text;
+        }
+      }
+    } catch {
+      // Fallback to status
+    }
+    throw new Error(errorMessage);
   }
   return res.json();
 }
