@@ -4,19 +4,19 @@ const BASE_URL = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:8000';
 
 async function handle<T>(res: Response): Promise<T> {
   if (!res.ok) {
-    let errorMessage = `HTTP ${res.status}`;
+    const status = typeof res?.status === 'number' ? res.status : 0;
+    let errorMessage = status ? `HTTP ${status}` : 'Network error';
     try {
-      const text = await res.text();
-      if (text) {
-        try {
-          const json = JSON.parse(text);
-          errorMessage = json.detail || json.message || text;
-        } catch {
-          errorMessage = text;
-        }
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const json = await res.json();
+        errorMessage = json.detail || json.message || errorMessage;
+      } else {
+        const text = await res.text();
+        if (text) errorMessage = text;
       }
     } catch {
-      // Fallback to status
+      // ignore parse errors
     }
     throw new Error(errorMessage);
   }

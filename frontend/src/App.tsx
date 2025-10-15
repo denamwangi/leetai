@@ -18,11 +18,12 @@ function App() {
     (async () => {
       try {
         setLoading(true)
+        setError(null)
         const [s, t] = await Promise.all([api.overallStats(), api.topicStats()])
         setStats(s)
         setTopics(t)
       } catch (e: any) {
-        setError(e.message || 'Failed to load')
+        setError(e.message || 'Failed to load data. Make sure the backend is running on port 8000.')
       } finally {
         setLoading(false)
       }
@@ -63,16 +64,7 @@ function App() {
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <h1 className="text-lg font-semibold">LeetCode Assistant</h1>
           <button 
-            style={{
-              padding: '8px 16px',
-              borderRadius: '6px',
-              backgroundColor: loading ? '#9ca3af' : '#2563eb',
-              color: 'white',
-              fontWeight: '500',
-              border: 'none',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              opacity: loading ? 0.6 : 1
-            }}
+            className="px-4 py-2 rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" 
             onClick={handleSync} 
             disabled={loading}
           >
@@ -118,16 +110,7 @@ function App() {
               placeholder="60"
             />
             <button 
-              style={{
-                padding: '8px 16px',
-                borderRadius: '6px',
-                backgroundColor: loading ? '#9ca3af' : '#16a34a',
-                color: 'white',
-                fontWeight: '500',
-                border: 'none',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.6 : 1
-              }}
+              className="px-4 py-2 rounded-md bg-green-600 text-white font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" 
               onClick={handleGeneratePlan} 
               disabled={loading}
             >
@@ -135,9 +118,12 @@ function App() {
             </button>
           </div>
           {plan && (
-            <div className="space-y-3">
-              <div className="text-sm text-gray-700">Focus: <span className="font-medium">{plan.focus_topic}</span> {plan.is_cached && <span className="ml-2 text-xs text-gray-500">(cached)</span>}</div>
-              <div className="grid md:grid-cols-2 gap-3">
+            <div className="mt-4 p-4 border border-gray-200 rounded-lg bg-white">
+              <div className="mb-3 text-sm text-gray-700">
+                Focus: <span className="font-medium">{plan.focus_topic}</span> 
+                {plan.is_cached && <span className="ml-2 text-xs text-gray-500">(cached)</span>}
+              </div>
+              <div className="grid md:grid-cols-2 gap-3 mb-3">
                 {plan.recommendations.map(r => (
                   <ProblemCard key={r.leetcode_number + r.title} {...r} />
                 ))}
