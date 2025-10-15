@@ -1,8 +1,9 @@
 # Database Configuration
 DATABASE_URL=postgresql://denamwangi@localhost:5432/leetcode_assistant
 
-# Claude API Configuration
+# Claude API Configuration (either works)
 ANTHROPIC_API_KEY=your_api_key_here
+ANTHROPIC_SECRET=your_api_key_here
 
 # LeetCode Configuration (optional, for authenticated API access)
 LEETCODE_USERNAME=your_leetcode_username
