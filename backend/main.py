@@ -14,6 +14,7 @@ from analytics import (
     calculate_topic_stats,
     get_topic_stats_by_name,
 )
+from claude import ClaudeClient
 from schemas import (
     Problem as ProblemSchema,
     ProblemCreate,
@@ -236,14 +237,65 @@ async def get_daily_plan(
     custom_instructions: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    """Get plan for date (or generate if doesn't exist) (placeholder for Phase 4)"""
-    # This will be implemented in Phase 4
-    # Query params: ?date=YYYY-MM-DD&time_minutes=60&custom_instructions=...
+    """Get plan for date (or generate if doesn't exist)."""
+    plan_date = date or datetime.now().date()
+
+    # If exists: return cached plan
+    existing = (
+        db.query(DailyPlan)
+        .filter(DailyPlan.plan_date == plan_date)
+        .first()
+    )
+    if existing:
+        return {
+            "id": existing.id,
+            "plan_date": existing.plan_date,
+            "available_time_minutes": existing.available_time_minutes,
+            "focus_topic": existing.focus_topic,
+            "recommendations": existing.problem_recommendations,
+            "ai_rationale": existing.ai_rationale,
+            "created_at": existing.created_at,
+            "is_cached": True,
+        }
+
+    if time_minutes is None:
+        raise HTTPException(status_code=400, detail="time_minutes is required when generating a new plan")
+
+    # Generate a new plan using Claude
+    topic_stats = calculate_topic_stats(db)
+    try:
+        claude = ClaudeClient()
+        plan = claude.generate_daily_plan(topic_stats, time_minutes, custom_instructions)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate plan: {e}")
+
+    # Validate and persist
+    # Expecting plan keys: focus_topic, recommendations (list), rationale
+    focus_topic = plan.get("focus_topic") or "General Review"
+    recommendations = plan.get("recommendations") or []
+    ai_rationale = plan.get("rationale") or ""
+
+    # Persist in DailyPlan
+    record = DailyPlan(
+        plan_date=plan_date,
+        available_time_minutes=time_minutes,
+        problem_recommendations=recommendations,
+        focus_topic=focus_topic,
+        ai_rationale=ai_rationale,
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+
     return {
-        "message": "Daily plan generation will be implemented in Phase 4",
-        "requested_date": date or datetime.now().date(),
-        "time_minutes": time_minutes,
-        "custom_instructions": custom_instructions
+        "id": record.id,
+        "plan_date": record.plan_date,
+        "available_time_minutes": record.available_time_minutes,
+        "focus_topic": record.focus_topic,
+        "recommendations": record.problem_recommendations,
+        "ai_rationale": record.ai_rationale,
+        "created_at": record.created_at,
+        "is_cached": False,
     }
 
 

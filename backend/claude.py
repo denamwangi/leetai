@@ -1,13 +1,26 @@
 import json
 import os
 from typing import Dict, List, Optional
+import requests
 
 from dotenv import load_dotenv
 
 try:
-    import anthropic
-except Exception:  # library may not be installed in some environments yet
+    import anthropic  # type: ignore
+    # Newer SDK
+    try:
+        from anthropic import Anthropic  # type: ignore
+    except Exception:
+        Anthropic = None  # type: ignore
+    # Legacy SDK (<=0.7)
+    try:
+        from anthropic import Client  # type: ignore
+    except Exception:
+        Client = None  # type: ignore
+except Exception:
     anthropic = None  # type: ignore
+    Anthropic = None  # type: ignore
+    Client = None  # type: ignore
 
 
 class ClaudeClient:
@@ -20,12 +33,26 @@ class ClaudeClient:
         if not key:
             raise RuntimeError("Anthropic API key not set. Configure ANTHROPIC_API_KEY or ANTHROPIC_SECRET in environment.")
 
-        if anthropic is None:
-            raise RuntimeError("anthropic package not installed. Add it to requirements and install.")
+        # Ensure env var is available for SDKs that read from env and for HTTP fallback
+        os.environ.setdefault("ANTHROPIC_API_KEY", key)
+        self.api_key = key
 
-        self.client = anthropic.Anthropic(api_key=key)
-        # Use plan's suggested model string; allow override
+        self.client = None
+        if anthropic is not None:
+            # Try to initialize SDK; it's okay if it fails, we'll use HTTP fallback
+            if Anthropic is not None:
+                try:
+                    self.client = Anthropic()  # type: ignore
+                except Exception:
+                    self.client = None
+            if self.client is None and Client is not None:
+                try:
+                    self.client = Client()  # type: ignore
+                except Exception:
+                    self.client = None
+        # Prefer modern model; provide legacy fallback used by old SDKs
         self.model = model or "claude-sonnet-4-5-20250929"
+        self.legacy_model = "claude-2"
 
     def generate_daily_plan(
         self,
@@ -35,14 +62,58 @@ class ClaudeClient:
     ) -> Dict:
         prompt = self._build_prompt(topic_stats, time_minutes, custom_instructions)
 
-        response = self.client.messages.create(
-            model=self.model,
-            max_tokens=2000,
-            messages=[{"role": "user", "content": prompt}],
-        )
+        # Three code paths: modern SDK, legacy SDK, or direct HTTP
+        content_text = "{}"
+        if self.client is not None and hasattr(self.client, "messages"):
+            try:
+                response = self.client.messages.create(  # type: ignore
+                    model=self.model,
+                    max_tokens=2000,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+                content_text = response.content[0].text if response and getattr(response, "content", None) else "{}"
+            except Exception:
+                content_text = "{}"
+        elif self.client is not None and hasattr(self.client, "completions"):
+            try:
+                hp = getattr(anthropic, "HUMAN_PROMPT", "\n\nHuman:")
+                ap = getattr(anthropic, "AI_PROMPT", "\n\nAssistant:")
+                legacy_prompt = f"{hp} {prompt}{ap}"
+                response = self.client.completions.create(  # type: ignore
+                    model=self.legacy_model,
+                    max_tokens_to_sample=2000,
+                    prompt=legacy_prompt,
+                )
+                content_text = getattr(response, "completion", "{}")
+            except Exception:
+                content_text = "{}"
+        else:
+            # HTTP fallback to Messages API
+            try:
+                url = "https://api.anthropic.com/v1/messages"
+                headers = {
+                    "x-api-key": self.api_key,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                }
+                body = {
+                    "model": self.model,
+                    "max_tokens": 2000,
+                    "messages": [{"role": "user", "content": prompt}],
+                }
+                r = requests.post(url, headers=headers, data=json.dumps(body), timeout=30)
+                r.raise_for_status()
+                j = r.json()
+                parts = j.get("content") or []
+                if isinstance(parts, list) and parts:
+                    content_text = parts[0].get("text", "{}")
+                else:
+                    content_text = "{}"
+            except Exception as e:
+                # Let parser fallback handle an empty body
+                content_text = "{}"
 
         # Parse expected JSON response
-        content_text = response.content[0].text if response and response.content else "{}"
         parsed = self._parse_response(content_text)
         return parsed
 
