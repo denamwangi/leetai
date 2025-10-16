@@ -6,10 +6,18 @@ export function ProblemCard({ leetcode_number, title, difficulty, reason, estima
     difficulty === 'medium' ? 'bg-yellow-100 text-yellow-700' :
     'bg-red-100 text-red-700';
 
+  // Debug logging
+  console.log(`ProblemCard ${leetcode_number}: ${title} - URL: ${leetcode_url}`);
+
   return (
-    <a className="block rounded-lg border p-4 bg-white hover:shadow" href={leetcode_url} target="_blank" rel="noreferrer">
+    <a 
+      className="block rounded-lg border p-4 bg-white hover:shadow-lg hover:border-blue-300 cursor-pointer transition-all duration-200" 
+      href={leetcode_url} 
+      target="_blank" 
+      rel="noreferrer"
+    >
       <div className="flex items-center justify-between">
-        <h4 className="font-semibold">{leetcode_number}. {title}</h4>
+        <h4 className="font-semibold text-blue-600 hover:text-blue-800">{leetcode_number}. {title}</h4>
         <span className={`text-xs px-2 py-1 rounded ${badge}`}>{difficulty}</span>
       </div>
       <p className="mt-2 text-sm text-gray-600">{reason}</p>
