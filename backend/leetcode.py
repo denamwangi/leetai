@@ -78,7 +78,7 @@ class LeetCodeClient:
                     "title": meta["title"],
                     "difficulty": meta["difficulty"].lower(),
                     "topics": [t["name"] for t in meta.get("topicTags", [])] or ["Unknown"],
-                    "leetcode_url": f"https://leetcode.com/problems/{meta['titleSlug']}/",
+                    "leetcode_url": f"https://leetcode.com/problems/{meta['titleSlug']}/description/",
                     "solved_date": solved_date,
                 }
             )

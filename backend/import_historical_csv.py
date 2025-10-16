@@ -51,7 +51,7 @@ def import_historical_csv(csv_file: str = "../data/historical.csv"):
                     
                     # Generate LeetCode URL (convert title to slug)
                     title_slug = title.lower().replace(' ', '-').replace('(', '').replace(')', '').replace(',', '').replace('.', '').replace("'", '')
-                    leetcode_url = f"https://leetcode.com/problems/{title_slug}/"
+                    leetcode_url = f"https://leetcode.com/problems/{title_slug}/description/"
                     
                     # Insert or update problem
                     problem_query = text("""

@@ -61,7 +61,7 @@ def import_historical_data(json_file: str = "../data/historical.json"):
                 
                 # Generate titleSlug from title (convert to lowercase, replace spaces with hyphens)
                 title_slug = title.lower().replace(' ', '-').replace('(', '').replace(')', '').replace(',', '').replace('.', '').replace("'", '')
-                leetcode_url = f"https://leetcode.com/problems/{title_slug}/"
+                leetcode_url = f"https://leetcode.com/problems/{title_slug}/description/"
                 
                 # Insert or update problem
                 problem_query = text("""
