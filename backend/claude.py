@@ -132,13 +132,14 @@ REQUIREMENTS:
 3. Include review problems from topics solved 7-14 days ago
 4. Balance difficulty: prioritize Medium, include 1 Hard if time permits
 5. Estimate 15 min for Easy, 25 min for Medium, 40 min for Hard
+6. Generate leetcode_url by converting title to slug: lowercase, replace spaces with hyphens, remove punctuation, add "/description/" at the end
 
 OUTPUT FORMAT (JSON):
 {{
   "focus_topic": "topic name",
   "recommendations": [
     {{"leetcode_number": 123, "title": "Problem", "difficulty": "medium",
-      "reason": "...", "estimated_minutes": 25}}
+      "reason": "...", "estimated_minutes": 25, "leetcode_url": "https://leetcode.com/problems/problem-slug/description/"}}
   ],
   "rationale": "explanation..."
 }}
