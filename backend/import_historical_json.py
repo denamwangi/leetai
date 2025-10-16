@@ -21,7 +21,7 @@ def import_historical_data(json_file: str = "../data/historical.json"):
     with open(json_file, 'r', encoding='utf-8') as f:
         data = json.load(f)
     
-    questions = data["userProgressQuestionList"]["questions"]
+    questions = data["data"]["userProgressQuestionList"]["questions"]
     print(f"✅ Found {len(questions)} problems in JSON file")
     
     # Connect to database
@@ -59,8 +59,9 @@ def import_historical_data(json_file: str = "../data/historical.json"):
                 if solved_date.year != 2025:
                     continue
                 
-                # Generate LeetCode URL
-                leetcode_url = f"https://leetcode.com/problems/{question['titleSlug']}/"
+                # Generate titleSlug from title (convert to lowercase, replace spaces with hyphens)
+                title_slug = title.lower().replace(' ', '-').replace('(', '').replace(')', '').replace(',', '').replace('.', '').replace("'", '')
+                leetcode_url = f"https://leetcode.com/problems/{title_slug}/"
                 
                 # Insert or update problem
                 problem_query = text("""
