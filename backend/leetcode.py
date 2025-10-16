@@ -66,6 +66,12 @@ class LeetCodeClient:
             except (ValueError, TypeError):
                 ts_int = 0
 
+            solved_date = datetime.fromtimestamp(ts_int).date()
+            
+            # Only include 2025 data
+            if solved_date.year != 2025:
+                continue
+                
             results.append(
                 {
                     "leetcode_number": leetcode_number,
@@ -73,7 +79,7 @@ class LeetCodeClient:
                     "difficulty": meta["difficulty"].lower(),
                     "topics": [t["name"] for t in meta.get("topicTags", [])] or ["Unknown"],
                     "leetcode_url": f"https://leetcode.com/problems/{meta['titleSlug']}/",
-                    "solved_date": datetime.fromtimestamp(ts_int).date(),
+                    "solved_date": solved_date,
                 }
             )
 

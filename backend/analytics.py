@@ -40,10 +40,11 @@ def calculate_topic_stats(db: Session) -> List[Dict]:
     last_solved_by_topic: Dict[str, date] = {}
 
     # Fetch submissions joined with problems to get difficulty and topics
-    # We iterate in Python for clarity and single-user simplicity
+    # Filter for 2025 data only
     submissions = (
         db.query(Submission, Problem)
         .join(Problem, Submission.problem_id == Problem.id)
+        .filter(Submission.solved_date >= date(2025, 1, 1))
         .all()
     )
 
@@ -108,9 +109,11 @@ def calculate_topic_stats(db: Session) -> List[Dict]:
 
 def calculate_overall_stats(db: Session) -> Dict:
     """Calculate overall statistics for the user."""
+    # Filter for 2025 data only
     submissions = (
         db.query(Submission, Problem)
         .join(Problem, Submission.problem_id == Problem.id)
+        .filter(Submission.solved_date >= date(2025, 1, 1))
         .all()
     )
 

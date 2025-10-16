@@ -55,6 +55,10 @@ def import_historical_data(json_file: str = "../data/historical.json"):
                 # Parse date
                 solved_date = datetime.fromisoformat(last_submitted_at.replace('Z', '+00:00')).date()
                 
+                # Only import 2025 data
+                if solved_date.year != 2025:
+                    continue
+                
                 # Generate LeetCode URL
                 leetcode_url = f"https://leetcode.com/problems/{question['titleSlug']}/"
                 
