@@ -56,8 +56,9 @@ class DailyPlan(Base):
     __tablename__ = "daily_plans"
     
     id = Column(Integer, primary_key=True, index=True)
-    plan_date = Column(Date, unique=True, nullable=False, index=True)
+    plan_date = Column(Date, nullable=False, index=True)
     available_time_minutes = Column(Integer, nullable=False)
+    custom_instructions = Column(Text, nullable=True)  # Optional custom instructions
     problem_recommendations = Column(JSONB, nullable=False)  # Array of {leetcode_number, reason, estimated_time}
     focus_topic = Column(String, nullable=False)  # The one new topic for the day
     ai_rationale = Column(Text, nullable=False)  # Claude's explanation

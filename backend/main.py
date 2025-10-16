@@ -247,10 +247,14 @@ async def get_daily_plan(
     """Get plan for date (or generate if doesn't exist)."""
     plan_date = date or datetime.now().date()
 
-    # If exists: return cached plan
+    # If exists: return cached plan (check all parameters)
     existing = (
         db.query(DailyPlan)
-        .filter(DailyPlan.plan_date == plan_date)
+        .filter(
+            DailyPlan.plan_date == plan_date,
+            DailyPlan.available_time_minutes == time_minutes,
+            DailyPlan.custom_instructions == custom_instructions
+        )
         .first()
     )
     if existing:
@@ -286,6 +290,7 @@ async def get_daily_plan(
     record = DailyPlan(
         plan_date=plan_date,
         available_time_minutes=time_minutes,
+        custom_instructions=custom_instructions,
         problem_recommendations=recommendations,
         focus_topic=focus_topic,
         ai_rationale=ai_rationale,
