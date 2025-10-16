@@ -39,12 +39,13 @@ export const api = {
     return handle<TopicStats[]>(res);
   },
 
-  dailyPlan: (params: { date?: string; time_minutes: number; custom_instructions?: string }) => {
+  dailyPlan: async (params: { date?: string; time_minutes: number; custom_instructions?: string }) => {
     const qs = new URLSearchParams();
     if (params.date) qs.set('date', params.date);
     qs.set('time_minutes', String(params.time_minutes));
     if (params.custom_instructions) qs.set('custom_instructions', params.custom_instructions);
-    return handle<DailyPlan>(fetch(`${BASE_URL}/api/daily-plan?${qs.toString()}`));
+    const res = await fetch(`${BASE_URL}/api/daily-plan?${qs.toString()}`);
+    return handle<DailyPlan>(res);
   },
 };
 
