@@ -1,21 +1,31 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Query
+# (moved routes below app initialization)
+from fastapi import FastAPI, Depends, HTTPException, status, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from datetime import date, datetime
 from typing import List, Optional
+import logging
 import os
 from dotenv import load_dotenv
+from backend.observability import get_langfuse, start_trace, end_span, langfuse_diagnostics
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 # Import our modules
-from database import get_db, create_tables, Problem, Submission, DailyPlan
-from leetcode import LeetCodeClient
-from analytics import (
+from backend.database import get_db, create_tables, Problem, Submission, DailyPlan
+from backend.leetcode import LeetCodeClient
+from backend.analytics import (
     calculate_overall_stats,
     calculate_topic_stats,
     get_topic_stats_by_name,
+    get_recent_submissions_by_topics,
 )
-from claude import ClaudeClient
-from schemas import (
+from backend.claude import ClaudeClient
+from backend.schemas import (
     Problem as ProblemSchema,
     ProblemCreate,
     Submission as SubmissionSchema,
@@ -29,6 +39,7 @@ from schemas import (
     OverallStats,
     TopicStats,
 )
+from backend.schemas import TopicsDecision, TopicsPreviewResponse, ConfirmPlanRequest
 
 # Load environment variables
 load_dotenv()
@@ -58,6 +69,77 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.get("/api/daily-plan/topics-preview", response_model=TopicsDecision)
+async def preview_daily_plan_topics(
+    request: Request,
+    time_minutes: int = Query(..., ge=15, le=480),
+    custom_instructions: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Run Prompt 1 only and return topics + a preview list of recent problems. Does not cache."""
+    topic_stats = calculate_topic_stats(db)
+    trace = start_trace(
+        "http.preview_daily_plan_topics",
+        user_id=str(request.client.host) if request and request.client else None,
+        metadata={"path": str(request.url.path)}
+    )
+    claude = ClaudeClient()
+    decision = claude.generate_topics_decision(topic_stats, time_minutes, custom_instructions)
+    try:
+        TopicsDecision(**decision)
+    except Exception:
+        # Basic fallback validation
+        fallback_topics = sorted(topic_stats, key=lambda t: t.get("weighted_score", 0.0))
+        new_topic = fallback_topics[0]["topic"] if fallback_topics else "Arrays"
+        review_topics = [t["topic"] for t in fallback_topics[1:3]] if len(fallback_topics) > 1 else []
+        decision = {"new_topic": new_topic, "review_topics": review_topics}
+
+    # Do not include preview_recent; return only the decision for user review
+    end_span(trace, output={"decision": decision})
+    return decision
+
+
+@app.post("/api/daily-plan/confirm")
+async def confirm_daily_plan(body: ConfirmPlanRequest, db: Session = Depends(get_db)):
+    """After user approves topics, run Prompt 2, save and return plan."""
+    plan_date = body.date or datetime.now().date()
+
+    topics = [body.decision.new_topic] + (body.decision.review_topics or [])
+    recent = get_recent_submissions_by_topics(db, topics, days=30)
+
+    claude = ClaudeClient()
+    plan = claude.generate_daily_plan_from_problems(
+        body.decision.dict(), recent, body.time_minutes, body.custom_instructions
+    )
+
+    focus_topic = plan.get("focus_topic") or body.decision.new_topic
+    recommendations = plan.get("recommendations") or []
+    ai_rationale = plan.get("rationale") or ""
+
+    record = DailyPlan(
+        plan_date=plan_date,
+        available_time_minutes=body.time_minutes,
+        custom_instructions=body.custom_instructions,
+        problem_recommendations=recommendations,
+        focus_topic=focus_topic,
+        ai_rationale=ai_rationale,
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+
+    return {
+        "id": record.id,
+        "plan_date": record.plan_date,
+        "available_time_minutes": record.available_time_minutes,
+        "focus_topic": record.focus_topic,
+        "recommendations": record.problem_recommendations,
+        "ai_rationale": record.ai_rationale,
+        "created_at": record.created_at,
+        "is_cached": False,
+    }
+
 # Startup event - create database tables
 @app.on_event("startup")
 async def startup_event():
@@ -68,6 +150,14 @@ async def startup_event():
     except Exception as e:
         print(f"❌ Error creating database tables: {e}")
         raise
+    # Initialize Langfuse if configured
+    try:
+        if get_langfuse() is not None:
+            print("✅ Langfuse initialized")
+        else:
+            print("ℹ️ Langfuse not configured; skipping")
+    except Exception:
+        print("⚠️ Failed to initialize Langfuse")
 
 
 # Health check endpoint
@@ -136,13 +226,13 @@ async def sync_leetcode_data(
 
     client = LeetCodeClient()
     try:
-        fetched = client.fetch_recent_submissions(limit=limit)
+        fetched = await client.fetch_recent_submissions(limit=limit)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"LeetCode fetch failed: {e}")
 
     if not fetched:
         # Could be missing username/session; still return a valid response
-        return SyncResponse(new_problems=0, new_submissions=0, message="No submissions fetched. Check LEETCODE_USERNAME/LEETCODE_SESSION.")
+        return SyncResponse(new_problems=0, new_submissions=0, message="No new submissions since last sync.")
 
     new_problems_count = 0
     new_submissions_count = 0
@@ -272,11 +362,23 @@ async def get_daily_plan(
     if time_minutes is None:
         raise HTTPException(status_code=400, detail="time_minutes is required when generating a new plan")
 
-    # Generate a new plan using Claude
+    # Generate a new plan using two-step flow (Phase 7)
     topic_stats = calculate_topic_stats(db)
     try:
         claude = ClaudeClient()
-        plan = claude.generate_daily_plan(topic_stats, time_minutes, custom_instructions)
+        decision = claude.generate_topics_decision(topic_stats, time_minutes, custom_instructions)
+        # Validate decision or fallback
+        try:
+            TopicsDecision(**decision)
+        except Exception:
+            fallback_topics = sorted(topic_stats, key=lambda t: t.get("weighted_score", 0.0))
+            new_topic = fallback_topics[0]["topic"] if fallback_topics else "Arrays"
+            review_topics = [t["topic"] for t in fallback_topics[1:3]] if len(fallback_topics) > 1 else []
+            decision = {"new_topic": new_topic, "review_topics": review_topics}
+
+        topics = [decision.get("new_topic")] + (decision.get("review_topics") or [])
+        recent = get_recent_submissions_by_topics(db, topics, days=30)
+        plan = claude.generate_daily_plan_from_problems(decision, recent, time_minutes, custom_instructions)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate plan: {e}")
 
@@ -326,6 +428,18 @@ async def internal_error_handler(request, exc):
         error="Internal Server Error",
         detail="An unexpected error occurred"
     )
+
+
+@app.get("/observability/test")
+async def observability_test():
+    trace = start_trace("http.observability_test", metadata={"note": "manual test"})
+    end_span(trace, output={"ok": True})
+    return {"ok": True}
+
+
+@app.get("/observability/diagnostics")
+async def observability_diagnostics():
+    return langfuse_diagnostics()
 
 
 if __name__ == "__main__":

@@ -153,6 +153,27 @@ class DailyPlanRequest(BaseModel):
     custom_instructions: Optional[str] = Field(None, max_length=500)
 
 
+class TopicsDecision(BaseModel):
+    """Schema for Prompt 1 output (Phase 7)."""
+    new_topic: str = Field(..., min_length=1)
+    review_topics: List[str] = Field(default_factory=list)
+    rationale: str = Field(..., min_length=1)
+
+
+class TopicsPreviewResponse(BaseModel):
+    """Response for topics preview endpoint (approval step)."""
+    decision: TopicsDecision
+    preview_recent: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class ConfirmPlanRequest(BaseModel):
+    """Request body to confirm and generate plan (Prompt 2)."""
+    date: Optional[date] = None
+    time_minutes: int = Field(..., ge=15, le=480)
+    custom_instructions: Optional[str] = Field(None, max_length=500)
+    decision: TopicsDecision
+
+
 # Sync and API response schemas
 class SyncResponse(BaseModel):
     """Schema for sync operation response"""

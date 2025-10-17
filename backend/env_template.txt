@@ -12,3 +12,8 @@ LEETCODE_SESSION=optional_session_cookie
 # Application Configuration (optional)
 BACKEND_PORT=8000
 FRONTEND_PORT=3000
+
+# Langfuse Observability
+LANGFUSE_PUBLIC_KEY=your_langfuse_public
+LANGFUSE_SECRET_KEY=your_langfuse_secret
+LANGFUSE_HOST=https://us.cloud.langfuse.com

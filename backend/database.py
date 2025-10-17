@@ -79,6 +79,3 @@ def create_tables():
     Base.metadata.create_all(bind=engine)
 
 
-def drop_tables():
-    """Drop all tables in the database (for testing/reset)"""
-    Base.metadata.drop_all(bind=engine)

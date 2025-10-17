@@ -2,7 +2,7 @@ import os
 from datetime import datetime
 from typing import Dict, List, Optional
 
-import requests
+import aiohttp
 from dotenv import load_dotenv
 
 
@@ -19,16 +19,20 @@ class LeetCodeClient:
         self.username = username or os.getenv("LEETCODE_USERNAME")
         self.session_cookie = session_cookie or os.getenv("LEETCODE_SESSION")
 
-        self._session = requests.Session()
+        self._headers = {
+            "User-Agent": "leetcode-assistant/1.0",
+            "Referer": "https://leetcode.com/",
+            "Origin": "https://leetcode.com"
+        }
+        self._cookies = {}
         if self.session_cookie:
             # LeetCode expects the cookie name to be "LEETCODE_SESSION"
-            self._session.headers.update({"User-Agent": "leetcode-assistant/1.0"})
-            self._session.cookies.set("LEETCODE_SESSION", self.session_cookie, domain="leetcode.com")
+            self._cookies["LEETCODE_SESSION"] = self.session_cookie
             print(f"🍪 Using LeetCode session cookie (length: {len(self.session_cookie)})")
         else:
             print(f"⚠️  No LEETCODE_SESSION cookie found - using public API")
 
-    def fetch_recent_submissions(self, limit: int = 20) -> List[Dict]:
+    async def fetch_recent_submissions(self, limit: int = 20) -> List[Dict]:
         """Fetch recent accepted submissions for the configured user.
 
         Returns a list of dicts with keys:
@@ -41,14 +45,14 @@ class LeetCodeClient:
 
         # Step 1: Fetch recent accepted submissions (titleSlug + timestamp)
         # LeetCode public GraphQL: recentAcSubmissionList
-        submissions = self._fetch_recent_ac_submissions(limit)
+        submissions = await self._fetch_recent_ac_submissions(limit)
 
         # Step 2: For each titleSlug, fetch problem metadata (number, difficulty, tags)
         results: List[Dict] = []
         print(f"📊 Fetched {len(submissions)} submissions from LeetCode")
         
         for sub in submissions:
-            meta = self._fetch_problem_meta(sub.get("titleSlug"))
+            meta = await self._fetch_problem_meta(sub.get("titleSlug"))
             if not meta:
                 print(f"⚠️  No metadata for {sub.get('titleSlug')}")
                 continue
@@ -95,7 +99,7 @@ class LeetCodeClient:
 
         return unique_results
 
-    def _fetch_recent_ac_submissions(self, limit: int) -> List[Dict]:
+    async def _fetch_recent_ac_submissions(self, limit: int) -> List[Dict]:
         query = {
             "operationName": "recentAcSubmissions",
             "variables": {"username": self.username},
@@ -110,18 +114,25 @@ class LeetCodeClient:
             ),
         }
         try:
-            resp = self._session.post(self.base_url, json=query, timeout=20)
-            resp.raise_for_status()
-            data = resp.json()
-            items = (data.get("data", {}) or {}).get("recentAcSubmissionList", [])
-            if not isinstance(items, list):
-                return []
-            # Limit and map
-            return items[: max(1, min(limit, 50))]
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    self.base_url, 
+                    json=query, 
+                    headers=self._headers,
+                    cookies=self._cookies,
+                    timeout=aiohttp.ClientTimeout(total=20)
+                ) as resp:
+                    resp.raise_for_status()
+                    data = await resp.json()
+                    items = (data.get("data", {}) or {}).get("recentAcSubmissionList", [])
+                    if not isinstance(items, list):
+                        return []
+                    # Limit and map
+                    return items[: max(1, min(limit, 50))]
         except Exception:
             return []
 
-    def _fetch_problem_meta(self, title_slug: Optional[str]) -> Optional[Dict]:
+    async def _fetch_problem_meta(self, title_slug: Optional[str]) -> Optional[Dict]:
         if not title_slug:
             return None
         query = {
@@ -140,11 +151,18 @@ class LeetCodeClient:
             ),
         }
         try:
-            resp = self._session.post(self.base_url, json=query, timeout=20)
-            resp.raise_for_status()
-            data = resp.json()
-            q = (data.get("data", {}) or {}).get("question")
-            return q
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    self.base_url, 
+                    json=query, 
+                    headers=self._headers,
+                    cookies=self._cookies,
+                    timeout=aiohttp.ClientTimeout(total=20)
+                ) as resp:
+                    resp.raise_for_status()
+                    data = await resp.json()
+                    q = (data.get("data", {}) or {}).get("question")
+                    return q
         except Exception:
             return None
 

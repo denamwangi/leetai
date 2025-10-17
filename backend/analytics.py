@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
-from database import Problem, Submission
+from backend.database import Problem, Submission
 
 
 def _get_time_windows(now: Optional[datetime] = None) -> Dict[str, datetime]:
@@ -105,6 +105,49 @@ def calculate_topic_stats(db: Session) -> List[Dict]:
     # Sort topics by weighted score desc
     topic_stats.sort(key=lambda t: t.get("weighted_score", 0.0), reverse=True)
     return topic_stats
+
+
+def get_recent_submissions_by_topics(db: Session, topics: List[str], days: int = 30) -> List[Dict]:
+    """Return recent submissions joined with problems filtered by topics and 2025-only."""
+    if not topics:
+        return []
+    cutoff = datetime.now().date() - timedelta(days=days)
+    rows = (
+        db.query(Submission, Problem)
+        .join(Problem, Submission.problem_id == Problem.id)
+        .filter(Submission.solved_date >= max(cutoff, date(2025, 1, 1)))
+        .all()
+    )
+    results: List[Dict] = []
+    # Normalize requested topics: case-insensitive and simple singular form
+    def _norm_set(items: List[str]) -> set:
+        s = set()
+        for it in items:
+            lo = (it or "").strip().lower()
+            if not lo:
+                continue
+            s.add(lo)
+            if lo.endswith("s"):
+                s.add(lo[:-1])
+        return s
+    topic_set = _norm_set(topics)
+    for submission, problem in rows:
+        problem_topics = [t.strip() for t in (problem.topics or []) if t and t.strip()]
+        if not problem_topics:
+            continue
+        # Normalize problem topics similarly (case-insensitive + simple singular)
+        pnorm = _norm_set(problem_topics)
+        if topic_set.isdisjoint(pnorm):
+            continue
+        results.append({
+            "leetcode_number": problem.leetcode_number,
+            "title": problem.title,
+            "difficulty": (problem.difficulty or "medium").lower(),
+            "topics": problem_topics,
+            "leetcode_url": problem.leetcode_url,
+            "solved_date": submission.solved_date.isoformat(),
+        })
+    return results
 
 
 def calculate_overall_stats(db: Session) -> Dict:
