@@ -2,6 +2,8 @@
 
 An intelligent study assistant that helps you create personalized LeetCode study plans using AI. The system analyzes your LeetCode submission history and generates daily study plans with topic recommendations and problem suggestions.
 
+![Project Plan](plan_scrrenshot.png)
+
 ## Features
 
 - **Smart Sync**: Automatically syncs your LeetCode submissions via GraphQL API
