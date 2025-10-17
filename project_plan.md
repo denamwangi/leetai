@@ -107,7 +107,7 @@ leetcode-assistant/
 
 ## Implementation Phases
 
-### Phase 1: Database & Backend Foundation (Day 1)
+### Phase 1: Database & Backend Foundation
 **Cursor Tasks:**
 1. Set up PostgreSQL database
 2. Create SQLAlchemy models in `database.py` for all tables
@@ -146,7 +146,7 @@ class Problem(Base):
 - CSV import successfully populates `problems` and `submissions`
 - Basic FastAPI server running
 
-### Phase 2: LeetCode Data Sync (Day 2)
+### Phase 2: LeetCode Data Sync
 **Cursor Tasks:**
 1. Implement LeetCode GraphQL API client in `leetcode.py`
 2. Create `POST /api/sync` endpoint in `main.py`:
@@ -182,7 +182,7 @@ class LeetCodeClient:
 - Can fetch and store new LeetCode submissions
 - Returns meaningful sync results
 
-### Phase 3: Analytics & Topic Stats (Day 2-3)
+### Phase 3: Analytics & Topic Stats
 **Cursor Tasks:**
 1. Implement topic statistics calculation in `analytics.py`:
    - Function to calculate stats for all topics
@@ -237,7 +237,7 @@ def calculate_weighted_score(topic_data: Dict) -> float:
 - Weighted scoring formula implemented
 - Fast enough for on-demand calculation
 
-### Phase 4: Claude Integration & Daily Plan (Day 3-4)
+### Phase 4: Claude Integration & Daily Plan
 **Cursor Tasks:**
 1. Set up Claude API client in `claude.py` with error handling
 2. Create prompt template function in `claude.py`:
@@ -319,7 +319,7 @@ OUTPUT FORMAT (JSON):
 - Claude integration working with structured JSON output
 - Prompt template produces good recommendations
 
-### Phase 5: Frontend - Complete UI (Day 4-6)
+### Phase 5: Frontend - Complete UI
 **Cursor Tasks:**
 1. Set up React app with TypeScript + Tailwind
 2. Create API client in `api.ts` for all backend endpoints
@@ -406,7 +406,7 @@ function App() {
 - Responsive design with Tailwind
 - All components have loading and error states
 
-### Phase 6: Polish & Testing (Day 6-7)
+### Phase 6: Polish & Testing
 **Cursor Tasks:**
 1. Add comprehensive error handling throughout
 2. Add loading states and spinners
@@ -432,6 +432,59 @@ function App() {
 - Comprehensive error handling
 - Documentation for setup and usage
 - Ready to push to GitHub
+
+
+## Phase 7: Intelligent Daily Plan Generation
+
+Tasks:
+
+Implement a two-prompt LLM workflow to generate personalized daily study plans.
+
+Prompt 1:
+
+Fetch topic summary statistics from the analytics layer.
+
+Pass the stats to the LLM to determine:
+
+new_topic — the next topic to introduce.
+
+focus_topics — refresher topics based on recency and performance gaps.
+
+The LLM response must return a deterministic JSON object with these fields populated.
+
+Prompt 2:
+
+Query the database for problems solved in the last 30 days under the returned topics.
+
+Pass the relevant LeetCode problem numbers to the LLM.
+
+Generate a structured daily plan with recommended problems, review strategy, and pacing.
+
+Add support for custom parameters (e.g., number of problems, difficulty distribution, time available).
+
+Ensure the output is predictable and machine-readable, enabling future automation (e.g., calendar or dashboard integrations).
+
+Key Files:
+
+backend/analytics.py — source of topic stats
+
+backend/llm_prompts.py — encapsulate both prompts for maintainability
+
+backend/main.py — add /api/daily-plan endpoint to trigger this workflow
+
+Example daily plan prompt flow:
+
+Prompt 1 → (topics + stats) → { "new_topic": "Heap", "focus_topics": ["DP", "Graph"] }
+Prompt 2 → (problem numbers) → structured plan response
+
+
+Deliverables:
+
+Two modular LLM prompts powering daily plan generation
+
+Structured JSON output for deterministic downstream use
+
+Working endpoint that can generate daily plans with custom parameters
 
 ---
 
@@ -601,27 +654,7 @@ class SyncResponse(BaseModel):
     message: str
 ```
 
----
 
-## Getting Started Checklist
-
-- [ ] Install PostgreSQL locally
-- [ ] Create database: `createdb leetcode_assistant`
-- [ ] Clone repo and navigate to backend folder
-- [ ] Create Python virtual environment: `python -m venv venv`
-- [ ] Activate virtual environment
-- [ ] Install dependencies: `pip install -r requirements.txt`
-- [ ] Create `.env` file with DATABASE_URL and ANTHROPIC_API_KEY
-- [ ] Prepare historical CSV in `data/historical.csv`
-- [ ] Run CSV import: `python import_csv.py`
-- [ ] Start FastAPI server: `uvicorn main:app --reload`
-- [ ] Navigate to frontend folder
-- [ ] Install dependencies: `npm install`
-- [ ] Start dev server: `npm run dev`
-- [ ] Test sync endpoint
-- [ ] Generate first daily plan
-
----
 
 ## Backend Dependencies (requirements.txt)
 

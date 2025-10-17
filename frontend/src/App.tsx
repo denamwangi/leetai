@@ -13,12 +13,14 @@ function App() {
   const [timeMinutes, setTimeMinutes] = useState(60)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [info, setInfo] = useState<string | null>(null)
 
   useEffect(() => {
     (async () => {
       try {
         setLoading(true)
         setError(null)
+        setInfo(null)
         const [s, t] = await Promise.all([api.overallStats(), api.topicStats()])
         setStats(s)
         setTopics(t)
@@ -34,10 +36,18 @@ function App() {
     try {
       setLoading(true)
       setError(null)
-      await api.sync(20, false)
+      setInfo(null)
+      const syncResult = await api.sync(20, false)
       const [s, t] = await Promise.all([api.overallStats(), api.topicStats()])
       setStats(s)
       setTopics(t)
+      
+      // Show info message for successful sync
+      if (syncResult.message) {
+        setInfo(syncResult.message)
+        // Auto-clear info message after 5 seconds
+        setTimeout(() => setInfo(null), 5000)
+      }
     } catch (e: any) {
       setError(e.message || 'Sync failed')
     } finally {
@@ -49,6 +59,7 @@ function App() {
     try {
       setLoading(true)
       setError(null)
+      setInfo(null)
       const p = await api.dailyPlan({ time_minutes: timeMinutes })
       setPlan(p)
     } catch (e: any) {
@@ -75,6 +86,7 @@ function App() {
 
       <main className="container mx-auto px-4 py-6 space-y-8">
         {error && <div className="p-3 bg-red-100 text-red-700 rounded">{error}</div>}
+        {info && <div className="p-3 bg-blue-100 text-blue-700 rounded">{info}</div>}
 
         <section>
           <h2 className="text-base font-semibold mb-3">Overall Progress</h2>

@@ -3,7 +3,7 @@ import type { DailyPlan, OverallStats, TopicStats } from './types';
 const BASE_URL = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:8000';
 
 async function handle<T>(res: Response): Promise<T> {
-  if (!res.ok) {
+  if (!res || !res.ok) {
     const status = typeof res?.status === 'number' ? res.status : 0;
     let errorMessage = status ? `HTTP ${status}` : 'Network error';
     try {
@@ -24,10 +24,19 @@ async function handle<T>(res: Response): Promise<T> {
 }
 
 export const api = {
-  sync: (limit = 20, dryRun = false) =>
-    handle<{ new_problems: number; new_submissions: number; message: string }>(
-      fetch(`${BASE_URL}/api/sync?limit=${limit}&dry_run=${dryRun}`, { method: 'POST' })
-    ),
+  // IMPORTANT: Must be async and await fetch() before passing to handle()
+  // The handle() function expects a Response object, not a Promise<Response>
+  // If you pass a Promise to handle(), it will see status: undefined and throw "Network error"
+  sync: async (limit = 20, dryRun = false) => {
+    const url = `${BASE_URL}/api/sync?limit=${limit}&dry_run=${dryRun}`;
+    const response = await fetch(url, { 
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+    return handle<{ new_problems: number; new_submissions: number; message: string }>(response);
+  },
 
   overallStats: async () => {
     const res = await fetch(`${BASE_URL}/api/stats`);
