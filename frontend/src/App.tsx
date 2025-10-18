@@ -3,7 +3,7 @@ import './index.css'
 import { useEffect, useState } from 'react'
 import { api } from './api'
 import type { DailyPlan, OverallStats, TopicStats } from './types'
-import { TopicCard } from './components/TopicCard'
+import { Sidebar } from './components/Sidebar'
 import { ProblemCard } from './components/ProblemCard'
 
 function App() {
@@ -14,6 +14,7 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
     (async () => {
@@ -24,8 +25,8 @@ function App() {
         const [s, t] = await Promise.all([api.overallStats(), api.topicStats()])
         setStats(s)
         setTopics(t)
-      } catch (e: any) {
-        setError(e.message || 'Failed to load data. Make sure the backend is running on port 8000.')
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : 'Failed to load data. Make sure the backend is running on port 8000.')
       } finally {
         setLoading(false)
       }
@@ -48,8 +49,8 @@ function App() {
         // Auto-clear info message after 5 seconds
         setTimeout(() => setInfo(null), 5000)
       }
-    } catch (e: any) {
-      setError(e.message || 'Sync failed')
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Sync failed')
     } finally {
       setLoading(false)
     }
@@ -62,18 +63,28 @@ function App() {
       setInfo(null)
       const p = await api.dailyPlan({ time_minutes: timeMinutes })
       setPlan(p)
-    } catch (e: any) {
-      setError(e.message || 'Plan failed')
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Plan failed')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <header className="bg-white border-b">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className="text-lg font-semibold">LeetCode Assistant</h1>
+          <div className="flex items-center gap-3">
+            <button
+              className="lg:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <h1 className="text-lg font-semibold">LeetCode Assistant</h1>
+          </div>
           <button 
             className="px-4 py-2 rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" 
             onClick={handleSync} 
@@ -84,76 +95,77 @@ function App() {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6 space-y-8">
-        {error && <div className="p-3 bg-red-100 text-red-700 rounded">{error}</div>}
-        {info && <div className="p-3 bg-blue-100 text-blue-700 rounded">{info}</div>}
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Mobile Overlay */}
+        {sidebarOpen && (
+          <div 
+            className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
 
-        <section>
-          <h2 className="text-base font-semibold mb-3">Overall Progress</h2>
-          {stats && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Stat label="Solved" value={stats.total_problems_solved} />
-              <Stat label="Avg Attempts" value={stats.average_attempts_per_problem} />
-              <Stat label="Current Streak" value={stats.current_streak_days} />
-              <Stat label="Longest Streak" value={stats.longest_streak_days} />
-            </div>
-          )}
-        </section>
+        {/* Sidebar */}
+        <div className={`
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          lg:translate-x-0
+          fixed lg:relative
+          top-0 left-0
+          z-50 lg:z-auto
+          transition-transform duration-300 ease-in-out
+          lg:transition-none
+        `}>
+          <Sidebar
+            stats={stats}
+            topics={topics}
+            plan={plan}
+            timeMinutes={timeMinutes}
+            setTimeMinutes={setTimeMinutes}
+            onGeneratePlan={handleGeneratePlan}
+            loading={loading}
+            onClose={() => setSidebarOpen(false)}
+          />
+        </div>
 
-        <section>
-          <h2 className="text-base font-semibold mb-3">Topics</h2>
-          <div className="grid md:grid-cols-3 gap-4">
-            {topics.map(t => (
-              <TopicCard key={t.topic} {...t} />
-            ))}
-          </div>
-        </section>
+        {/* Main Content */}
+        <main className="flex-1 overflow-y-auto">
+          <div className="p-6">
+            {error && <div className="p-3 bg-red-100 text-red-700 rounded mb-4">{error}</div>}
+            {info && <div className="p-3 bg-blue-100 text-blue-700 rounded mb-4">{info}</div>}
+            
+            {plan ? (
+              <div className="max-w-4xl mx-auto">
+                <div className="mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Daily Study Plan</h2>
+                  <div className="flex items-center gap-4 text-sm text-gray-600">
+                    <span>Focus: <span className="font-medium text-gray-900">{plan.focus_topic}</span></span>
+                    <span>Time: <span className="font-medium text-gray-900">{plan.available_time_minutes} minutes</span></span>
+                    {plan.is_cached && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">cached</span>}
+                  </div>
+                </div>
 
-        <section>
-          <h2 className="text-base font-semibold mb-3">Daily Plan</h2>
-          <div className="flex items-center gap-2 mb-3">
-            <input 
-              type="number" 
-              className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
-              value={timeMinutes} 
-              onChange={e => setTimeMinutes(parseInt(e.target.value || '0'))} 
-              min="15"
-              max="480"
-              placeholder="60"
-            />
-            <button 
-              className="px-4 py-2 rounded-md bg-green-600 text-white font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" 
-              onClick={handleGeneratePlan} 
-              disabled={loading}
-            >
-              {loading ? 'Generating...' : 'Generate Plan'}
-            </button>
-          </div>
-          {plan && (
-            <div className="mt-4 p-4 border border-gray-200 rounded-lg bg-white">
-              <div className="mb-3 text-sm text-gray-700">
-                Focus: <span className="font-medium">{plan.focus_topic}</span> 
-                {plan.is_cached && <span className="ml-2 text-xs text-gray-500">(cached)</span>}
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Recommended Problems</h3>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {plan.recommendations.map(r => (
+                      <ProblemCard key={r.leetcode_number + r.title} {...r} />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">AI Rationale</h3>
+                  <div className="text-gray-700 whitespace-pre-wrap leading-relaxed">{plan.ai_rationale}</div>
+                </div>
               </div>
-              <div className="grid md:grid-cols-2 gap-3 mb-3">
-                {plan.recommendations.map(r => (
-                  <ProblemCard key={r.leetcode_number + r.title} {...r} />
-                ))}
+            ) : (
+              <div className="text-center text-gray-500 mt-20">
+                <h2 className="text-xl font-semibold mb-2">Welcome to LeetCode Assistant</h2>
+                <p>Use the sidebar to view your progress and generate daily study plans.</p>
               </div>
-              <div className="text-sm text-gray-600 whitespace-pre-wrap">{plan.ai_rationale}</div>
-            </div>
-          )}
-        </section>
-      </main>
-    </div>
-  )
-}
-
-function Stat({ label, value }: { label: string; value: number | string }) {
-  return (
-    <div className="rounded-lg border bg-white p-3">
-      <div className="text-xs text-gray-500">{label}</div>
-      <div className="text-lg font-semibold">{value}</div>
+            )}
+          </div>
+        </main>
+      </div>
     </div>
   )
 }
