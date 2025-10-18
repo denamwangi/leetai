@@ -10,6 +10,7 @@ interface SidebarProps {
   timeMinutes: number
   setTimeMinutes: (minutes: number) => void
   onGeneratePlan: () => void
+  onShowTopicBreakdown: () => void
   loading: boolean
   onClose?: () => void
 }
@@ -23,6 +24,7 @@ export function Sidebar({
   timeMinutes, 
   setTimeMinutes, 
   onGeneratePlan, 
+  onShowTopicBreakdown,
   loading,
   onClose
 }: SidebarProps) {
@@ -85,12 +87,12 @@ export function Sidebar({
             </div>
             
             <div>
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">Topic Breakdown</h3>
-              <div className="space-y-3">
-                {topics.map(topic => (
-                  <TopicCard key={topic.topic} {...topic} />
-                ))}
-              </div>
+              <button 
+                className="w-full px-4 py-2 rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors text-sm" 
+                onClick={onShowTopicBreakdown}
+              >
+                Show Topic Breakdown
+              </button>
             </div>
           </div>
         )}

@@ -2,7 +2,7 @@
 
 An intelligent study assistant that helps you create personalized LeetCode study plans using AI. The system analyzes your LeetCode submission history and generates daily study plans with topic recommendations and problem suggestions.
 
-![Project Plan](plan_scrrenshot.png)
+![Project Plan](plan_screenshot.png)
 
 ## Features
 
